@@ -139,8 +139,9 @@ export function judge(year: number, guess: number): Judgement {
 
 export function submitGuess(round: Round, guess: number): Round {
   if (round.finished) return round;
-  const guesses = [...round.guesses, Math.round(guess)];
-  const solved = Math.round(guess) === round.year;
+  const clamped = Math.min(LAST_YEAR, Math.max(FIRST_YEAR, Math.round(guess)));
+  const guesses = [...round.guesses, clamped];
+  const solved = clamped === round.year;
   return {
     ...round,
     guesses,
@@ -164,13 +165,17 @@ export function extraOptions(round: Round): Category[] {
   );
 }
 
-export function addPanel(round: Round, category: Category): Round {
+export function addPanel(
+  round: Round,
+  category: Category,
+  rng: () => number = Math.random,
+): Round {
   if (!extraOptions(round).includes(category)) return round;
   const candidates = indicatorsAt(round.year).filter(
     (indicator) =>
       indicator.category === category && !round.panels.includes(indicator.id),
   );
-  const added = candidates[0];
+  const added = candidates[Math.floor(rng() * candidates.length)];
   if (added === undefined) return round;
   return { ...round, panels: [...round.panels, added.id] };
 }

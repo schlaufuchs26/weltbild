@@ -58,7 +58,7 @@ export function GameView({ rounds = ROUNDS, rng = Math.random }: GameProps) {
 
   function handleExtra(category: Category) {
     if (current === null) return;
-    setCurrent(addPanel(current, category));
+    setCurrent(addPanel(current, category, rng));
   }
 
   function handleNext() {

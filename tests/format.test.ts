@@ -25,7 +25,7 @@ describe("formatValue", () => {
   test("energy is grouped, small shares keep three significant digits", () => {
     expect(formatValue(3666.1284, "kwh")).toBe("3,666 kWh");
     expect(formatValue(4.852, "children")).toBe("4.85");
-    expect(formatValue(0.000532, "per100")).toBe("0.000532 per 100");
+    expect(formatValue(0.000532, "per100")).toBe("0.001 per 100");
     expect(formatValue(109.8, "per100")).toBe("110 per 100");
     expect(formatValue(22.951145, "kg")).toBe("23.0 kg");
     expect(formatValue(24.7, "per1000")).toBe("24.7 per 1,000");

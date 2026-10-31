@@ -145,8 +145,10 @@ describe("a round", () => {
     expect(submitGuess(round, 1990)).toBe(round);
   });
 
-  test("guesses are rounded to whole years", () => {
+  test("guesses are rounded and clamped to the playable range", () => {
     expect(submitGuess(base(), 1969.6).guesses).toEqual([1970]);
+    expect(submitGuess(base(), 1800).guesses).toEqual([FIRST_YEAR]);
+    expect(submitGuess(base(), 3000).guesses).toEqual([LAST_YEAR]);
   });
 
   test("each extra panel and wrong guess costs points, with a floor", () => {

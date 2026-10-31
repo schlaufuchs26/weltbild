@@ -33,7 +33,9 @@ export function formatValue(value: number, format: IndicatorFormat): string {
     case "children":
       return value.toFixed(2);
     case "per100":
-      return `${sig(value)} per 100`;
+      // 0.00053 subscriptions per person is noise on a card; three decimals read better.
+      if (value === 0) return "0 per 100";
+      return `${Math.abs(value) < 1 ? value.toFixed(3) : sig(value)} per 100`;
     case "kg":
       return `${value.toFixed(1)} kg`;
     case "per1000":
