@@ -8,10 +8,8 @@ import {
 
 export const ROUNDS = 6;
 export const START_PANELS = 3;
-export const MAX_GUESSES = 4;
 export const MAX_EXTRA_PANELS = 3;
 export const EXTRA_PANEL_COST = 80;
-export const WRONG_GUESS_COST = 150;
 export const BASE_SCORE = 1000;
 
 export const CATEGORIES: Category[] = ["people", "planet", "technology"];
@@ -27,16 +25,33 @@ export interface Round {
   year: number;
   /** Indicator ids currently on the table, in display order. */
   panels: string[];
-  guesses: number[];
-  solved: boolean;
-  finished: boolean;
+  /** The one guess, final once set; null while the round is open. */
+  guess: number | null;
 }
 
-export interface Judgement {
-  direction: "earlier" | "later" | "exact";
+export interface DistanceScore {
+  /** Years between the guess and the hidden year. */
   diff: number;
-  band: string;
+  /** Points for the distance alone, before the extra panels are paid for. */
+  points: number;
+  /** One short phrase for the reveal. */
+  verdict: string;
 }
+
+/**
+ * Points fall with the distance. A guess that is off by a few years still
+ * pays nearly everything, a wrong decade pays a fraction, an era off pays
+ * nothing: the round is a reading of the world, not a search for one number.
+ */
+const TIERS: [maxDiff: number, points: number, verdict: string][] = [
+  [0, BASE_SCORE, "dead on"],
+  [2, 900, "a whisker away"],
+  [5, 750, "close"],
+  [10, 450, "the right decade, the wrong year"],
+  [20, 200, "a decade off"],
+  [40, 80, "far off"],
+  [Number.POSITIVE_INFINITY, 0, "another era"],
+];
 
 /** Value of an indicator in a given year, or undefined if unmeasured. */
 export function valueAt(
@@ -115,39 +130,29 @@ export function createRound(
     return {
       year,
       panels: shuffled(rng, panels),
-      guesses: [],
-      solved: false,
-      finished: false,
+      guess: null,
     };
   }
   throw new Error("no year with a full panel set");
 }
 
-export function band(diff: number): string {
-  if (diff === 0) return "exact";
-  if (diff <= 3) return "within 3 years";
-  if (diff <= 10) return "within 10 years";
-  if (diff <= 25) return "within 25 years";
-  return "more than 25 years off";
+export function scoreFor(guess: number, year: number): DistanceScore {
+  const diff = Math.abs(Math.round(guess) - year);
+  const tier = TIERS.find(([maxDiff]) => diff <= maxDiff);
+  if (tier === undefined) throw new Error(`no tier for a gap of ${diff}`);
+  const [, points, verdict] = tier;
+  return { diff, points, verdict };
 }
 
-export function judge(year: number, guess: number): Judgement {
-  const diff = Math.abs(guess - year);
-  const direction = diff === 0 ? "exact" : guess < year ? "later" : "earlier";
-  return { direction, diff, band: band(diff) };
+export function isFinished(round: Round): boolean {
+  return round.guess !== null;
 }
 
+/** A guess is final: the round scores it and takes no second attempt. */
 export function submitGuess(round: Round, guess: number): Round {
-  if (round.finished) return round;
+  if (isFinished(round)) return round;
   const clamped = Math.min(LAST_YEAR, Math.max(FIRST_YEAR, Math.round(guess)));
-  const guesses = [...round.guesses, clamped];
-  const solved = clamped === round.year;
-  return {
-    ...round,
-    guesses,
-    solved,
-    finished: solved || guesses.length >= MAX_GUESSES,
-  };
+  return { ...round, guess: clamped };
 }
 
 export function extraPanelsUsed(round: Round): number {
@@ -156,7 +161,9 @@ export function extraPanelsUsed(round: Round): number {
 
 /** Categories that still have an unshown, measured panel this year. */
 export function extraOptions(round: Round): Category[] {
-  if (round.finished || extraPanelsUsed(round) >= MAX_EXTRA_PANELS) return [];
+  if (isFinished(round) || extraPanelsUsed(round) >= MAX_EXTRA_PANELS) {
+    return [];
+  }
   const available = indicatorsAt(round.year).filter(
     (indicator) => !round.panels.includes(indicator.id),
   );
@@ -181,14 +188,24 @@ export function addPanel(
 }
 
 export function roundScore(round: Round): number {
-  if (!round.solved) return 0;
-  const spent =
-    EXTRA_PANEL_COST * extraPanelsUsed(round) +
-    WRONG_GUESS_COST * (round.guesses.length - 1);
-  // 3 extras and 3 wrong guesses still leave 310 of the base score.
-  return Math.max(0, BASE_SCORE - spent);
+  if (round.guess === null) return 0;
+  const { points } = scoreFor(round.guess, round.year);
+  // Three extra panels still leave 760 of an exact hit.
+  return Math.max(0, points - EXTRA_PANEL_COST * extraPanelsUsed(round));
 }
 
 export function totalScore(rounds: Round[]): number {
   return rounds.reduce((sum, round) => sum + roundScore(round), 0);
+}
+
+/** One line under the round total, keyed on the share of the maximum. */
+export function totalVerdict(score: number, max: number): string {
+  const share = max > 0 ? score / max : 0;
+  if (share >= 0.95)
+    return "Every year within a whisker. The timeline is yours.";
+  if (share >= 0.8) return "Sharp reading: the decades and most of the years.";
+  if (share >= 0.6) return "Solid. The eras are right, a few years slipped.";
+  if (share >= 0.35) return "You know the era; the exact year stayed a guess.";
+  if (share >= 0.1) return "Rough. Read the panels more closely next time.";
+  return "The world moved on without you this round.";
 }

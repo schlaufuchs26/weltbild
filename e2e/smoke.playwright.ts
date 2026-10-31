@@ -27,17 +27,21 @@ test("the game boots with three panels", async ({ page }) => {
   expect(pageErrors).toEqual([]);
 });
 
-test("a guess is answered", async ({ page }) => {
+test("a guess is scored at once and cannot be repeated", async ({ page }) => {
   await page.setViewportSize(LAPTOP);
   await page.goto("/");
 
   await page.locator("input.num").fill("1980");
   await page.getByRole("button", { name: "Guess" }).click();
 
-  // Either the year was right (reveal) or the game says early/late.
+  // The one guess is final: the reveal names the year and the distance.
   await expect(
-    page.getByText(/Earlier, and|Later, and|the year was/),
+    page.getByText(/Dead on; the year was|Off by \d+ years?; the year was/),
   ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Guess" })).toHaveCount(0);
+  await expect(page.locator("input.num")).toHaveCount(0);
+  // the typed year is the one that was scored, not the slider's start value
+  await expect(page.getByText(/you said 1980/)).toBeVisible();
 });
 
 test("asking for an extra panel adds a card", async ({ page }) => {

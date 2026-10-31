@@ -10,15 +10,15 @@ import {
   extraOptions,
   extraPanelsUsed,
   indicatorById,
-  judge,
+  isFinished,
   MAX_EXTRA_PANELS,
-  MAX_GUESSES,
   ROUNDS,
   type Round,
   roundScore,
+  scoreFor,
   submitGuess,
   totalScore,
-  WRONG_GUESS_COST,
+  totalVerdict,
 } from "../game";
 import { PanelCard } from "./PanelCard";
 
@@ -27,33 +27,27 @@ interface GameProps {
   rng?: () => number;
 }
 
-function feedbackText(year: number, guess: number): string {
-  const result = judge(year, guess);
-  const direction = result.direction === "later" ? "Later" : "Earlier";
-  return `${direction}, and ${result.band}.`;
+/** "Off by 4 years" / "Dead on" for a scored round. */
+function gapText(diff: number): string {
+  if (diff === 0) return "Dead on";
+  return `Off by ${diff} ${diff === 1 ? "year" : "years"}`;
 }
 
-function guessHistory(round: Round): string[] {
-  return round.guesses.map((guess) => {
-    const result = judge(round.year, guess);
-    const arrow = result.direction === "later" ? "\u2191" : "\u2193";
-    return `${guess} ${arrow} ${result.band}`;
-  });
+function guessText(round: Round): string {
+  return round.guess === null ? "\u2014" : formatYear(round.guess);
 }
 
 export function GameView({ rounds = ROUNDS, rng = Math.random }: GameProps) {
   const [played, setPlayed] = useState<Round[]>([]);
   const [current, setCurrent] = useState<Round | null>(() => createRound(rng));
   const [guess, setGuess] = useState(1980);
-  const [note, setNote] = useState<string | null>(null);
 
   const score = useMemo(() => totalScore(played), [played]);
+  const max = rounds * BASE_SCORE;
 
   function handleGuess() {
-    if (current === null || current.finished) return;
-    const next = submitGuess(current, guess);
-    setCurrent(next);
-    setNote(next.finished ? null : feedbackText(next.year, guess));
+    if (current === null || isFinished(current)) return;
+    setCurrent(submitGuess(current, guess));
   }
 
   function handleExtra(category: Category) {
@@ -65,7 +59,6 @@ export function GameView({ rounds = ROUNDS, rng = Math.random }: GameProps) {
     if (current === null) return;
     const done = [...played, current];
     setPlayed(done);
-    setNote(null);
     setGuess(1980);
     if (done.length >= rounds) {
       setCurrent(null);
@@ -81,7 +74,6 @@ export function GameView({ rounds = ROUNDS, rng = Math.random }: GameProps) {
 
   function handleRestart() {
     setPlayed([]);
-    setNote(null);
     setGuess(1980);
     setCurrent(createRound(rng));
   }
@@ -91,28 +83,41 @@ export function GameView({ rounds = ROUNDS, rng = Math.random }: GameProps) {
       <section className="summary">
         <p className="summary-label">Six years, guessed</p>
         <p className="summary-score" data-testid="total-score">
-          {score} / {rounds * BASE_SCORE}
+          {score} / {max}
         </p>
         <table className="summary-table">
           <thead>
             <tr>
               <th>Year</th>
-              <th>Guesses</th>
+              <th>You said</th>
+              <th>Gap</th>
               <th>Panels</th>
               <th>Points</th>
             </tr>
           </thead>
           <tbody>
-            {played.map((round) => (
-              <tr key={round.year}>
-                <td>{formatYear(round.year)}</td>
-                <td>{round.solved ? round.guesses.length : "unsolved"}</td>
-                <td>{round.panels.length}</td>
-                <td>{roundScore(round)}</td>
-              </tr>
-            ))}
+            {played.map((round) => {
+              const result =
+                round.guess === null ? null : scoreFor(round.guess, round.year);
+              return (
+                <tr key={round.year}>
+                  <td>{formatYear(round.year)}</td>
+                  <td>{guessText(round)}</td>
+                  <td>
+                    {result === null
+                      ? "\u2014"
+                      : result.diff === 0
+                        ? "exact"
+                        : `${result.diff} yr`}
+                  </td>
+                  <td>{round.panels.length}</td>
+                  <td>{roundScore(round)}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
+        <p className="summary-verdict">{totalVerdict(score, max)}</p>
         <button
           type="button"
           className="btn btn-primary"
@@ -124,10 +129,11 @@ export function GameView({ rounds = ROUNDS, rng = Math.random }: GameProps) {
     );
   }
 
-  const open = current.finished;
+  const open = isFinished(current);
+  const result =
+    current.guess === null ? null : scoreFor(current.guess, current.year);
   const options = extraOptions(current);
   const extrasLeft = MAX_EXTRA_PANELS - extraPanelsUsed(current);
-  const guessesLeft = MAX_GUESSES - current.guesses.length;
 
   return (
     <section className="game">
@@ -149,16 +155,13 @@ export function GameView({ rounds = ROUNDS, rng = Math.random }: GameProps) {
         ))}
       </div>
 
-      {open ? (
+      {open && result !== null ? (
         <div className="reveal">
-          <p className="reveal-label">
-            {current.solved ? "Solved" : "Out of guesses"}; the year was
-          </p>
+          <p className="reveal-label">{gapText(result.diff)}; the year was</p>
           <p className="reveal-year">{formatYear(current.year)}</p>
           <p className="reveal-points">
-            +{roundScore(current)} points · {current.guesses.length}{" "}
-            {current.guesses.length === 1 ? "guess" : "guesses"} ·{" "}
-            {current.panels.length} panels
+            you said {guessText(current)} · {result.verdict} · +
+            {roundScore(current)} points · {current.panels.length} panels
           </p>
           <button
             type="button"
@@ -170,18 +173,6 @@ export function GameView({ rounds = ROUNDS, rng = Math.random }: GameProps) {
         </div>
       ) : (
         <div className="guessbox">
-          {note !== null && (
-            <p className="feedback" role="status">
-              {note}
-            </p>
-          )}
-          {current.guesses.length > 0 && (
-            <ul className="history">
-              {guessHistory(current).map((line) => (
-                <li key={line}>{line}</li>
-              ))}
-            </ul>
-          )}
           <div className="guess-row">
             <label className="slider-label" htmlFor="year-slider">
               Your year
@@ -219,8 +210,9 @@ export function GameView({ rounds = ROUNDS, rng = Math.random }: GameProps) {
             </button>
           </div>
           <p className="meta">
-            {guessesLeft} {guessesLeft === 1 ? "guess" : "guesses"} left · wrong
-            guesses cost {WRONG_GUESS_COST}, extra panels {EXTRA_PANEL_COST}
+            One guess, scored by how close it lands: exact pays {BASE_SCORE}, a
+            near miss most of it, a decade off little. Extra panels cost{" "}
+            {EXTRA_PANEL_COST} each.
           </p>
           {options.length > 0 && (
             <div className="extras">

@@ -14,8 +14,8 @@ export function App() {
 
       <p className="howto">
         A handful of world statistics, all measured in the same hidden year.
-        Read the panels, name the year. Each wrong guess tells you whether you
-        are early or late and roughly how far. {FIRST_YEAR}&ndash;{LAST_YEAR},
+        Read the panels, name the year. One guess per round, and it is final:
+        the closer you land, the more it pays. {FIRST_YEAR}&ndash;{LAST_YEAR},
         six years, one score.
       </p>
 

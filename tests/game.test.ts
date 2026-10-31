@@ -3,7 +3,6 @@ import { FIRST_YEAR, INDICATORS, LAST_YEAR } from "../src/data/world";
 import {
   addPanel,
   BASE_SCORE,
-  band,
   CATEGORIES,
   createRound,
   EXTRA_PANEL_COST,
@@ -11,17 +10,17 @@ import {
   extraPanelsUsed,
   indicatorById,
   indicatorsAt,
-  judge,
+  isFinished,
   MAX_EXTRA_PANELS,
-  MAX_GUESSES,
   mulberry32,
   ROUNDS,
   roundScore,
   START_PANELS,
+  scoreFor,
   submitGuess,
   totalScore,
+  totalVerdict,
   valueAt,
-  WRONG_GUESS_COST,
 } from "../src/game";
 
 const population = indicatorById("population");
@@ -99,70 +98,88 @@ describe("createRound", () => {
   });
 });
 
-describe("judging a guess", () => {
-  test("bands widen with the distance", () => {
-    expect(band(0)).toBe("exact");
-    expect(band(3)).toBe("within 3 years");
-    expect(band(4)).toBe("within 10 years");
-    expect(band(10)).toBe("within 10 years");
-    expect(band(11)).toBe("within 25 years");
-    expect(band(25)).toBe("within 25 years");
-    expect(band(26)).toBe("more than 25 years off");
+describe("scoring a guess", () => {
+  test("the score falls with the distance", () => {
+    expect(scoreFor(1970, 1970).points).toBe(BASE_SCORE);
+    const ladder = [0, 1, 3, 5, 10, 20, 40, 41, 73].map(
+      (diff) => scoreFor(1970 + diff, 1970).points,
+    );
+    // monotone: a farther year never pays more than a nearer one
+    for (let i = 1; i < ladder.length; i++) {
+      const previous = ladder[i - 1];
+      const current = ladder[i];
+      if (previous === undefined || current === undefined) {
+        throw new Error("ladder hole");
+      }
+      expect(current).toBeLessThanOrEqual(previous);
+    }
+    expect(ladder[0]).toBeGreaterThan(ladder[ladder.length - 1] ?? 0);
   });
 
-  test("direction points at the truth", () => {
-    expect(judge(1970, 1960).direction).toBe("later");
-    expect(judge(1970, 1980).direction).toBe("earlier");
-    expect(judge(1970, 1970)).toEqual({
-      direction: "exact",
-      diff: 0,
-      band: "exact",
-    });
+  test("a near miss keeps most of the score, a decade off little", () => {
+    expect(scoreFor(1972, 1970).points).toBe(900);
+    expect(scoreFor(1975, 1970).points).toBe(750);
+    expect(scoreFor(1980, 1970).points).toBeLessThanOrEqual(BASE_SCORE * 0.45);
+    expect(scoreFor(2010, 1970).points).toBe(80);
+    expect(scoreFor(2020, 1970).points).toBe(0);
+    expect(scoreFor(1900, 1970).points).toBe(0);
+  });
+
+  test("distance is absolute and symmetric", () => {
+    expect(scoreFor(1960, 1970)).toEqual(scoreFor(1980, 1970));
+    expect(scoreFor(1960, 1970).diff).toBe(10);
+    expect(scoreFor(1969.6, 1970).diff).toBe(0);
+  });
+
+  test("each tier carries a verdict", () => {
+    expect(scoreFor(1970, 1970).verdict).toBe("dead on");
+    expect(scoreFor(1971, 1970).verdict).toBe("a whisker away");
+    expect(scoreFor(1980, 1970).verdict).toBe(
+      "the right decade, the wrong year",
+    );
+    expect(scoreFor(1900, 1970).verdict).toBe("another era");
   });
 });
 
 describe("a round", () => {
   const base = () => ({ ...createRound(mulberry32(3)), year: 1970 });
 
-  test("a right guess ends it and scores the full base", () => {
+  test("an exact guess ends it and scores the full base", () => {
     const round = submitGuess(base(), 1970);
-    expect(round.solved).toBe(true);
-    expect(round.finished).toBe(true);
+    expect(isFinished(round)).toBe(true);
+    expect(round.guess).toBe(1970);
     expect(roundScore(round)).toBe(BASE_SCORE);
   });
 
-  test("four wrong guesses end it without points", () => {
-    let round = base();
-    for (let i = 0; i < MAX_GUESSES; i++) round = submitGuess(round, 1980);
-    expect(round.guesses).toHaveLength(MAX_GUESSES);
-    expect(round.finished).toBe(true);
-    expect(round.solved).toBe(false);
-    expect(roundScore(round)).toBe(0);
+  test("a near miss ends it too, with the points for its distance", () => {
+    const round = submitGuess(base(), 1974);
+    expect(isFinished(round)).toBe(true);
+    expect(roundScore(round)).toBe(750);
   });
 
-  test("a finished round ignores further guesses", () => {
-    const round = submitGuess(base(), 1970);
-    expect(submitGuess(round, 1990)).toBe(round);
+  test("a second guess on the same round is impossible", () => {
+    const round = submitGuess(base(), 1960);
+    expect(submitGuess(round, 1970)).toBe(round);
+    expect(submitGuess(round, 1970).guess).toBe(1960);
+    expect(roundScore(submitGuess(round, 1970))).toBe(
+      scoreFor(1960, 1970).points,
+    );
   });
 
   test("guesses are rounded and clamped to the playable range", () => {
-    expect(submitGuess(base(), 1969.6).guesses).toEqual([1970]);
-    expect(submitGuess(base(), 1800).guesses).toEqual([FIRST_YEAR]);
-    expect(submitGuess(base(), 3000).guesses).toEqual([LAST_YEAR]);
+    expect(submitGuess(base(), 1969.6).guess).toBe(1970);
+    expect(submitGuess(base(), 1800).guess).toBe(FIRST_YEAR);
+    expect(submitGuess(base(), 3000).guess).toBe(LAST_YEAR);
   });
 
-  test("each extra panel and wrong guess costs points, with a floor", () => {
+  test("each extra panel costs points, with a floor", () => {
     const withPanel = submitGuess(addPanel(base(), "people"), 1970);
     expect(extraPanelsUsed(withPanel)).toBe(1);
     expect(roundScore(withPanel)).toBe(BASE_SCORE - EXTRA_PANEL_COST);
 
-    const withBoth = submitGuess(
-      submitGuess(addPanel(base(), "people"), 1980),
-      1970,
-    );
-    expect(roundScore(withBoth)).toBe(
-      BASE_SCORE - EXTRA_PANEL_COST - WRONG_GUESS_COST,
-    );
+    // a panel bought on a wide miss eats the little the distance paid
+    const wideMiss = submitGuess(addPanel(base(), "people"), 2000);
+    expect(roundScore(wideMiss)).toBe(0);
 
     let thin = base();
     for (const category of ["people", "planet", "technology"] as const) {
@@ -200,17 +217,30 @@ describe("a round", () => {
 
   test("total is the sum over rounds", () => {
     const a = submitGuess(base(), 1970);
-    const b = submitGuess(submitGuess({ ...base(), year: 2000 }, 1990), 2000);
-    expect(totalScore([a, b])).toBe(
-      BASE_SCORE + (BASE_SCORE - WRONG_GUESS_COST),
+    const b = submitGuess({ ...base(), year: 2000 }, 1990);
+    expect(totalScore([a, b])).toBe(BASE_SCORE + scoreFor(1990, 2000).points);
+    expect(totalScore([base()])).toBe(0);
+  });
+});
+
+describe("the round verdict", () => {
+  test("falls from praise to shrug with the share", () => {
+    const max = ROUNDS * BASE_SCORE;
+    const verdicts = [1, 0.85, 0.65, 0.4, 0.15, 0].map((share) =>
+      totalVerdict(share * max, max),
     );
+    expect(new Set(verdicts).size).toBe(verdicts.length);
+    expect(verdicts[0]).toContain("whisker");
+    expect(verdicts[verdicts.length - 1]).toContain("without you");
   });
 });
 
 describe("the game shape", () => {
-  test("six rounds, three starting panels, four guesses", () => {
+  test("six rounds, three starting panels, one guess", () => {
     expect(ROUNDS).toBe(6);
     expect(START_PANELS).toBe(3);
-    expect(MAX_GUESSES).toBe(4);
+    const round = createRound(mulberry32(5));
+    expect(round.guess).toBeNull();
+    expect(isFinished(round)).toBe(false);
   });
 });

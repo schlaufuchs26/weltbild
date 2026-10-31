@@ -5,7 +5,7 @@ Guess the year from the state of the world.
 Each round deals a handful of world statistics, all measured in the same
 hidden year: population, life expectancy, CO₂ in the air, internet users,
 electricity per person, the tallest building, and so on. Read the panels, name
-the year. Six rounds, four guesses each.
+the year. Six rounds, one guess each, scored by how close it lands.
 
 **Play:** https://schlaufuchs26.github.io/weltbild/
 
@@ -15,12 +15,15 @@ the year. Six rounds, four guesses each.
   **technology**.
 - You may ask for up to three more panels, each costs 80 points. You pick the
   group, so you can chase the clue you trust.
-- Every wrong guess says whether the year is earlier or later and roughly how
-  far off you are (within 3, 10 or 25 years).
-- A solve pays 1000 minus 80 per extra panel and 150 per wrong guess.
-  Four misses pay nothing.
+- One guess per round, and it is final. There is no earlier/later hint and no
+  second attempt: the round ends with the points your distance earned.
+- The score falls with the gap: exact pays 1000, 1-2 years off 900, 3-5 off
+  750, 6-10 off 450, 11-20 off 200, 21-40 off 80, further nothing. Extra
+  panels come off that.
 - The reveal shows each panel's full history from 1950 to 2023 with the true
   year marked, so you can see what the number was doing.
+- The score screen lists per round the year, your guess, the gap and the
+  points, plus a total and a one-line verdict.
 
 ## Inference routes
 

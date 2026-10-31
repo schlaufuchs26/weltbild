@@ -148,26 +148,6 @@
       font-variant-numeric: tabular-nums;
     }
     .guessbox { margin-top: 24px; }
-    .feedback {
-      font-size: 1.02rem;
-      color: var(--accent);
-      margin-bottom: 10px;
-    }
-    .history {
-      list-style: none;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-bottom: 14px;
-    }
-    .history li {
-      background: #221e19;
-      border-radius: 999px;
-      padding: 3px 11px;
-      font-size: 0.76rem;
-      color: #b9b0a4;
-      font-variant-numeric: tabular-nums;
-    }
     .guess-row {
       display: flex;
       align-items: center;
@@ -288,6 +268,12 @@
     .summary-table td {
       padding: 8px;
       border-bottom: 1px solid var(--line);
+      font-size: 0.9rem;
+    }
+    .summary-verdict {
+      max-width: 44ch;
+      margin: 0 auto 22px;
+      color: var(--muted);
       font-size: 0.9rem;
     }
     .footer {

@@ -38,22 +38,50 @@ describe("GameView", () => {
     fireEvent.click(screen.getByRole("button", { name: "Guess" }));
   }
 
-  test("a wrong guess says which direction and how far", () => {
+  test("one guess ends the round with its distance and points", () => {
     render(<GameView rounds={1} rng={mulberry32(seed)} />);
-    guess(year < 2000 ? 2020 : 1960);
-    const expected = year < 2000 ? "Earlier" : "Later";
-    expect(screen.getByRole("status").textContent).toContain(expected);
+    const miss = year < 2000 ? 2020 : 1960;
+    guess(miss);
+    const gap = Math.abs(miss - year);
+    expect(
+      screen.getByText(`Off by ${gap} years; the year was`),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(new RegExp(`you said ${miss}`)),
+    ).toBeInTheDocument();
+    // the guess control is gone: there is no second attempt
+    expect(screen.queryByRole("button", { name: "Guess" })).toBeNull();
+    expect(screen.queryByRole("slider")).toBeNull();
   });
 
-  test("a right guess reveals the year and pays the base score", () => {
+  test("an exact guess is called dead on and pays the base score", () => {
     render(<GameView rounds={1} rng={mulberry32(seed)} />);
     guess(year);
-    expect(screen.getByText("Solved; the year was")).toBeInTheDocument();
+    expect(screen.getByText("Dead on; the year was")).toBeInTheDocument();
     expect(screen.getAllByText(String(year)).length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole("button", { name: "See the score" }));
     expect(screen.getByTestId("total-score").textContent).toBe("1000 / 1000");
     fireEvent.click(screen.getByRole("button", { name: "Play again" }));
     expect(screen.getByText("Round 1 / 1")).toBeInTheDocument();
+  });
+
+  test("the score screen lists guess, year, gap and points per round", () => {
+    render(<GameView rounds={1} rng={mulberry32(seed)} />);
+    const miss = year < 2000 ? 2020 : 1960;
+    guess(miss);
+    fireEvent.click(screen.getByRole("button", { name: "See the score" }));
+    const table = screen.getByRole("table");
+    const cells = [...table.querySelectorAll("tbody td")].map(
+      (cell) => cell.textContent,
+    );
+    expect(cells[0]).toBe(String(year));
+    expect(cells[1]).toBe(String(miss));
+    expect(cells[2]).toBe(`${Math.abs(miss - year)} yr`);
+    expect(cells[4]).toBe("0");
+    // a verdict line follows the total
+    expect(
+      screen.getByText(/without you|whisker|Sharp|Solid|era|Rough/),
+    ).toBeInTheDocument();
   });
 
   test("asking for another panel adds a card", () => {
