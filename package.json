@@ -1,7 +1,7 @@
 {
-  "name": "frontend-template",
+  "name": "weltbild",
   "version": "0.1.0",
-  "description": "Minimal Bun + TypeScript + React template for web projects",
+  "description": "Guess the year from the state of the world: world statistics, one hidden year.",
   "type": "module",
   "scripts": {
     "dev": "bun index.html",

@@ -3,28 +3,301 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Bun + TS Template</title>
+  <title>Weltbild &middot; guess the year from the state of the world</title>
+  <meta name="description" content="A handful of world statistics from one hidden year. Read the panels, name the year." />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🦊</text></svg>">
   <style>
     :root {
-      --bg: #0d0d0d;
-      --surface: #1a1a1a;
-      --text: #e0e0e0;
-      --muted: #888;
+      --bg: #0e0d0c;
+      --surface: #191714;
+      --surface-open: #1e1a16;
+      --line: #2b2620;
+      --line-strong: #3c342b;
+      --text: #e9e2d7;
+      --muted: #9a9187;
+      --faint: #6f665c;
       --accent: #f0a040;
+      --people: #8fbf72;
+      --planet: #6fa8dc;
+      --technology: #f0a040;
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      background: var(--bg);
+      background:
+        radial-gradient(1100px 520px at 50% -8%, #1c1710 0%, transparent 60%),
+        var(--bg);
       color: var(--text);
-      font-family: system-ui, -apple-system, sans-serif;
+      font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+      line-height: 1.5;
       min-height: 100vh;
+    }
+    .app {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 36px 20px 48px;
+    }
+    .masthead h1 {
+      font-size: 2.1rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+    .logo { font-size: 1.7rem; }
+    .tagline {
+      color: var(--muted);
+      margin-top: 2px;
+      font-size: 0.95rem;
+    }
+    .howto {
+      margin-top: 14px;
+      max-width: 66ch;
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+    .game, .summary { margin-top: 26px; }
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--faint);
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 8px;
+    }
+    .score-label { color: var(--accent); }
+    .panels {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 14px;
+      margin-top: 18px;
+    }
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 14px 16px 16px;
+      min-height: 128px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .panel-open {
+      background: var(--surface-open);
+      border-color: var(--line-strong);
+    }
+    .panel-head {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .panel-head h3 {
+      font-size: 0.82rem;
+      font-weight: 500;
+      color: var(--muted);
+      letter-spacing: 0.01em;
+    }
+    .tag {
+      font-size: 0.6rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      font-weight: 700;
+    }
+    .tag-people { color: var(--people); }
+    .tag-planet { color: var(--planet); }
+    .tag-technology { color: var(--technology); }
+    .panel-value {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 1.75rem;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.02em;
+    }
+    .panel-caption {
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+    .panel-hint {
+      font-size: 0.7rem;
+      color: var(--faint);
+      margin-top: 2px;
+    }
+    .spark-wrap { margin-top: 4px; }
+    .spark { width: 100%; height: auto; display: block; }
+    .spark-line {
+      fill: none;
+      stroke: var(--accent);
+      stroke-width: 1.5;
+      stroke-linejoin: round;
+      opacity: 0.85;
+    }
+    .spark-marker {
+      stroke: var(--faint);
+      stroke-width: 1;
+      stroke-dasharray: 3 3;
+    }
+    .spark-dot { fill: var(--accent); }
+    .spark-ends {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.66rem;
+      color: var(--faint);
+      font-variant-numeric: tabular-nums;
+    }
+    .guessbox { margin-top: 24px; }
+    .feedback {
+      font-size: 1.02rem;
+      color: var(--accent);
+      margin-bottom: 10px;
+    }
+    .history {
+      list-style: none;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .history li {
+      background: #221e19;
+      border-radius: 999px;
+      padding: 3px 11px;
+      font-size: 0.76rem;
+      color: #b9b0a4;
+      font-variant-numeric: tabular-nums;
+    }
+    .guess-row {
       display: flex;
       align-items: center;
-      justify-content: center;
+      gap: 12px;
+      flex-wrap: wrap;
     }
-    #root {
-      text-align: center;
+    .slider-label {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--faint);
+    }
+    .slider {
+      flex: 1 1 220px;
+      accent-color: var(--accent);
+      min-width: 180px;
+    }
+    .num {
+      width: 92px;
+      background: var(--surface);
+      border: 1px solid var(--line-strong);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 9px 10px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.95rem;
+      font-variant-numeric: tabular-nums;
+    }
+    .btn {
+      border: none;
+      border-radius: 8px;
+      padding: 9px 16px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      transition: opacity 0.15s, border-color 0.15s;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn-primary { background: var(--accent); color: #17120c; }
+    .btn-ghost {
+      background: transparent;
+      border: 1px solid var(--line-strong);
+      color: var(--text);
+      font-weight: 500;
+      padding: 6px 12px;
+      font-size: 0.8rem;
+    }
+    .btn-ghost:hover { border-color: var(--accent); }
+    .meta {
+      margin-top: 10px;
+      font-size: 0.72rem;
+      color: var(--faint);
+    }
+    .extras {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+    .extras-label {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--faint);
+    }
+    .reveal { margin-top: 24px; }
+    .reveal-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--faint);
+    }
+    .reveal-year {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 3.2rem;
+      font-weight: 700;
+      color: var(--accent);
+      line-height: 1.1;
+      font-variant-numeric: tabular-nums;
+    }
+    .reveal-points {
+      color: var(--muted);
+      font-size: 0.85rem;
+      margin: 6px 0 16px;
+    }
+    .summary { text-align: center; }
+    .summary-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--faint);
+    }
+    .summary-score {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 2.8rem;
+      color: var(--accent);
+      font-variant-numeric: tabular-nums;
+      margin-bottom: 18px;
+    }
+    .summary-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 22px;
+      font-variant-numeric: tabular-nums;
+    }
+    .summary-table th {
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--faint);
+      font-weight: 600;
+      text-align: left;
+      padding: 6px 8px;
+      border-bottom: 1px solid var(--line);
+    }
+    .summary-table td {
+      padding: 8px;
+      border-bottom: 1px solid var(--line);
+      font-size: 0.9rem;
+    }
+    .footer {
+      margin-top: 44px;
+      padding-top: 14px;
+      border-top: 1px solid #211d19;
+      font-size: 0.7rem;
+      color: var(--faint);
+      line-height: 1.6;
+    }
+    @media (max-width: 560px) {
+      .app { padding: 24px 14px 36px; }
+      .panel-value { font-size: 1.5rem; }
+      .reveal-year { font-size: 2.4rem; }
     }
   </style>
 </head>

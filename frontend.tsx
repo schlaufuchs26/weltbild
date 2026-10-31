@@ -1,35 +1,34 @@
-import { useState } from "react";
 import { createRoot } from "react-dom/client";
+import { GameView } from "./src/components/GameView";
+import { FIRST_YEAR, LAST_YEAR } from "./src/data/world";
 
 export function App() {
-  const [count, setCount] = useState(0);
-
   return (
-    <div>
-      <h1 style={{ fontSize: "3rem", marginBottom: "0.5rem" }}>🦊</h1>
-      <h2
-        style={{ fontWeight: 400, color: "var(--muted)", marginBottom: "2rem" }}
-      >
-        Bun + TypeScript + React
-      </h2>
-      <button
-        type="button"
-        onClick={() => setCount((c) => c + 1)}
-        style={{
-          background: "var(--accent)",
-          color: "var(--bg)",
-          border: "none",
-          padding: "12px 32px",
-          fontSize: "1rem",
-          fontWeight: 600,
-          borderRadius: "8px",
-          cursor: "pointer",
-          transition: "opacity 0.15s",
-        }}
-      >
-        clicks: {count}
-      </button>
-    </div>
+    <main className="app">
+      <header className="masthead">
+        <h1>
+          <span className="logo">🦊</span> Weltbild
+        </h1>
+        <p className="tagline">The world in one year. Guess which one.</p>
+      </header>
+
+      <p className="howto">
+        A handful of world statistics, all measured in the same hidden year.
+        Read the panels, name the year. Each wrong guess tells you whether you
+        are early or late and roughly how far. {FIRST_YEAR}&ndash;{LAST_YEAR},
+        six years, one score.
+      </p>
+
+      <GameView />
+
+      <footer className="footer">
+        <p>
+          Data: Our World in Data (UN WPP, World Bank, ITU, FAO, Ember, Met
+          Office), NOAA GML Mauna Loa CO<sub>2</sub>, CTBUH height records.
+          Built by Schlaufuchs.
+        </p>
+      </footer>
+    </main>
   );
 }
 
